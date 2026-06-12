@@ -159,11 +159,94 @@ def test_cv_by_case():
     print("  [ok] 5-fold CV splits by case, disjoint, full coverage")
 
 
+# ----------------------------------------------------------------------------
+# Layer 3/4 compatibility tests (added in the refactor)
+# ----------------------------------------------------------------------------
+def test_prepare_fastpath_matches_cases():
+    """Prepared (parse-once) path must give identical metrics to the Case path."""
+    from . import prepare, apply_theta, extract_features
+    reg = default_registry(); theta = default_theta(reg)
+    cases = [make_case(f"C{i}") for i in range(4)]
+    via_cases = evaluate(cases, theta, reg)
+    prepared = prepare(cases, reg)
+    via_prepared = evaluate(prepared, theta)            # no registry needed
+    assert via_cases["levels"]["variant"] == via_prepared["levels"]["variant"]
+    b = extract_features(cases[0].df, reg)
+    s_matrix = apply_theta(b, theta)
+    s_loop = [score(r, theta, reg) for r in cases[0].df.to_dict("records")]
+    assert all(approx(a, c) for a, c in zip(s_matrix, s_loop))
+    print("  [ok] prepare() fast path == Case path; apply_theta == per-row score")
+
+
+def test_theta_vector_roundtrip_and_bounds():
+    from . import theta_keys, theta_to_vector, vector_to_theta, default_bounds
+    reg = default_registry(); keys = theta_keys(reg)
+    theta = {k: i + 0.5 for i, k in enumerate(keys)}
+    assert vector_to_theta(theta_to_vector(theta, keys), keys) == theta
+    assert all(lo == 0.0 for lo, _ in default_bounds(reg).values())
+    print("  [ok] theta<->vector round-trips; bounds are non-negative")
+
+
+def test_collapse_respects_selected_transcript():
+    from . import extract_features, apply_theta, rank_units
+    reg = default_registry(); theta = default_theta(reg)
+    rows = [
+        row(chrom="9", pos="500", ref="A", alt="G", gene_symbol="GX",
+            tx_rank_within_variant="1", consequence="missense_variant",
+            impact="MODERATE", revel_score="0.30", cadd_phred="12"),
+        row(chrom="9", pos="500", ref="A", alt="G", gene_symbol="GX",
+            tx_rank_within_variant="2", consequence="stop_gained", impact="HIGH",
+            loftee_lof_flag="HC", cadd_phred="35"),
+    ]
+    df = pd.DataFrame(rows); b = extract_features(df, reg); s = apply_theta(b, theta)
+    sel = rank_units(b, s, level="variant", collapse="auto").iloc[0]
+    mx = rank_units(b, s, level="variant", collapse="max").iloc[0]
+    assert sel["_rep_row"] == 0 and mx["_rep_row"] == 1
+    assert sel["score"] < mx["score"]
+    print(f"  [ok] tx-aware collapse keeps selected tx (score {sel['score']:.0f}), "
+          f"not the shopped LoF transcript ({mx['score']:.0f})")
+
+
+def test_explain_failures_structure():
+    from . import explain_failures
+    reg = default_registry(); theta = default_theta(reg)
+    cases = [make_case("C0")]
+    fails = explain_failures(cases, theta, reg, k=0)    # nothing can rank <=0
+    assert fails and fails[0]["causal_rank"] == 1
+    f = fails[0]
+    assert "causal_contributions" in f and "blockers" in f
+    assert set(f["causal_contributions"]) == set(default_theta(reg))
+    print(f"  [ok] explain_failures gives per-contributor breakdown "
+          f"(causal_rank={f['causal_rank']}, {len(f['blockers'])} blockers)")
+
+
+def test_bootstrap_and_describe():
+    from . import bootstrap_ci, describe_model
+    import json as _json
+    reg = default_registry(); theta = default_theta(reg)
+    cases = [make_case(f"C{i}") for i in range(8)]
+    ci = bootstrap_ci(cases, theta, lambda res: res["levels"]["variant"]["MRR"],
+                      registry=reg, n_boot=200, seed=1)
+    assert ci["lo"] <= ci["point"] <= ci["hi"]
+    desc = describe_model(reg, theta, metrics={"variant_MRR": ci["point"]},
+                          data_snapshot="P001..P050 @ clinvar_20260523",
+                          rationale="README defaults, theta==1 baseline")
+    _json.dumps(desc)
+    assert len(desc["version_signature"]) == 16
+    print(f"  [ok] bootstrap CI MRR={ci['point']:.3f} [{ci['lo']:.3f},{ci['hi']:.3f}]; "
+          f"signature={desc['version_signature']}")
+
+
 if __name__ == "__main__":
-    print("running ranker Layer 0/1 self-test")
+    print("running ranker Layer 0/1 + L3/4-hook self-test")
     test_component_scores()
     test_theta_one_reproduces_raw()
     test_ranking_and_metrics()
     test_masking()
     test_cv_by_case()
+    test_prepare_fastpath_matches_cases()
+    test_theta_vector_roundtrip_and_bounds()
+    test_collapse_respects_selected_transcript()
+    test_explain_failures_structure()
+    test_bootstrap_and_describe()
     print("ALL PASSED")
