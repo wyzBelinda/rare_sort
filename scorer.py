@@ -4,7 +4,6 @@ KEY CHANGE vs v1: calibration ("how strong is this evidence", expensive string
 parsing) is split from combination ("apply theta", cheap linear algebra).
 
   extract_features(df, registry) -> FeatureBundle   # parse ONCE, persist
-  extract_from_csv(path, registry) -> FeatureBundle  # chunked, for 9GB tables
   apply_theta(bundle, theta, masked) -> scores       # vectorized, run N times
   rank_units(bundle, scores, level)  -> ranked units # collapse + stable sort
 
@@ -99,97 +98,26 @@ class FeatureBundle:
         return self.F[:, self.keys.index(key)]
 
 
-def _row_stream(df: pd.DataFrame):
-    """Yield (i, dict) tuples without materialising the whole table into memory.
-
-    df.to_dict('records') creates EVERY row dict at once; this creates one dict
-    per row and releases it immediately.  At 9 M rows the difference is O(n)
-    peak memory vs O(1)."""
-    cols = list(df.columns)
-    for i, tup in enumerate(df.itertuples(index=False)):
-        yield i, dict(zip(cols, tup))
-
-
-def _extract_bundle(df: pd.DataFrame, registry: list[Contributor],
-                    offset: int = 0) -> FeatureBundle:
-    """Single-pass over *df*, building F row-by-row + the index frame.
-
-    The outer function (extract_features or extract_from_csv) is responsible for
-    passing a right-sized DataFrame so this code stays simple and never sees a
-    table larger than one chunk."""
-    n, m = len(df), len(registry)
-    cals = [c.calibrate for c in registry]
+def extract_features(df: pd.DataFrame, registry: list[Contributor]) -> FeatureBundle:
+    """Run every calibrate() ONCE per row. This is the only expensive step;
+    everything downstream is linear algebra on F."""
+    recs = df.to_dict("records")          # at true scale: chunk + project columns
+    n, m = len(recs), len(registry)
     F = np.zeros((n, m), dtype=float)
-    vkeys: list[tuple] = [None] * n
-    genes: list = [None] * n
-    tx_ranks: list = [None] * n
-    has_tx = "tx_rank_within_variant" in df.columns
-
-    for i, row in _row_stream(df):
-        for j, cal in enumerate(cals):
-            F[i, j] = cal(row)
-        vkeys[i] = variant_key(
-            row.get("chrom"), row.get("pos"), row.get("ref"), row.get("alt"))
-        genes[i] = row.get("gene_symbol")
-        if has_tx:
-            tx_ranks[i] = to_int(row.get("tx_rank_within_variant"))
-
+    for j, c in enumerate(registry):
+        cal = c.calibrate
+        F[:, j] = [cal(r) for r in recs]
     idx = pd.DataFrame({
-        "_order": np.arange(offset, offset + n),
-        "_vkey": vkeys,
-        "gene_symbol": genes,
+        "_order": np.arange(n),
+        "_vkey": [variant_key(r.get("chrom"), r.get("pos"), r.get("ref"), r.get("alt"))
+                  for r in recs],
+        "gene_symbol": [r.get("gene_symbol") for r in recs],
     })
-    if has_tx:
-        idx["tx_rank"] = tx_ranks
+    if "tx_rank_within_variant" in df.columns:
+        idx["tx_rank"] = [to_int(r.get("tx_rank_within_variant")) for r in recs]
     return FeatureBundle(F=F, keys=theta_keys(registry),
                          kinds=[c.kind for c in registry],
                          groups=[c.group for c in registry], index=idx)
-
-
-def extract_features(df: pd.DataFrame, registry: list[Contributor]) -> FeatureBundle:
-    return _extract_bundle(df, registry, offset=0)
-
-
-def extract_from_csv(path: str, registry: list[Contributor],
-                     chunksize: int = 50000, show_progress: bool = True,
-                     **csv_kwargs) -> FeatureBundle:
-    """Streaming feature extraction that never holds more than *chunksize* rows.
-
-    Uses pandas chunksize + column projection (needed_columns) so a 9 GB CSV
-    stays at roughly chunksize × n_cols × str-bytes of peak memory.  The only
-    two copies that grow with the full table are the (n_rows × n_contributors)
-    float64 matrix F and the lightweight index frame — about 48 MB per million
-    rows for v1's 6 contributors.
-    """
-    cols = needed_columns(registry)
-    F_parts, idx_parts = [], []
-    offset = 0
-
-    reader = pd.read_csv(path, dtype=str, keep_default_na=False,
-                         usecols=cols, chunksize=chunksize, **csv_kwargs)
-    try:
-        for chunk in reader:
-            chunk = chunk.fillna("-")
-            bundle = _extract_bundle(chunk, registry, offset=offset)
-            F_parts.append(bundle.F)
-            idx_parts.append(bundle.index)
-            offset += len(chunk)
-            if show_progress:
-                print(f"  ... {offset:,} rows processed", flush=True)
-    except Exception as e:
-        # Last chunk may be malformed (e.g. truncated quoted field) -- warn and
-        # continue with whatever we already accumulated.
-        if show_progress:
-            print(f"  [warn] stopped at row ~{offset:,}: {e} — using {offset:,} accumulated rows",
-                  flush=True)
-
-    if offset == 0:
-        raise ValueError(f"No rows extracted from {path}")
-
-    F = np.vstack(F_parts)
-    idx = pd.concat(idx_parts, ignore_index=True)
-    return FeatureBundle(F=F, keys=bundle.keys, kinds=bundle.kinds,
-                         groups=bundle.groups, index=idx)
 
 
 def apply_theta(bundle: FeatureBundle, theta: dict,

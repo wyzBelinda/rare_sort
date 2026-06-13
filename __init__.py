@@ -7,7 +7,7 @@ theta == all 1.0 reproduces the README raw_pathogenic_score.
 from .contributors import Contributor, default_registry, ADDITIVE, GATE, GENE_PRIOR
 from .scorer import (
     default_theta, score, score_frame, rank_units, truth_rank,
-    FeatureBundle, extract_features, extract_from_csv, apply_theta,
+    FeatureBundle, extract_features, apply_theta,
     theta_keys, default_bounds, theta_to_vector, vector_to_theta, needed_columns,
 )
 from .harness import (
@@ -19,7 +19,7 @@ from .harness import (
 __all__ = [
     "Contributor", "default_registry", "ADDITIVE", "GATE", "GENE_PRIOR",
     "default_theta", "score", "score_frame", "rank_units", "truth_rank",
-    "FeatureBundle", "extract_features", "extract_from_csv", "apply_theta",
+    "FeatureBundle", "extract_features", "apply_theta",
     "theta_keys", "default_bounds", "theta_to_vector", "vector_to_theta", "needed_columns",
     "Case", "Prepared", "prepare", "evaluate", "evaluate_all_conditions",
     "explain_failures", "bootstrap_ci", "describe_model",
