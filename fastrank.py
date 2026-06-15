@@ -96,14 +96,18 @@ def _rank_from(unit_score, unit_order, truth_ids):
     return int(better.sum()) + 1
 
 
-def fast_ranks(fi: FastIndex, row_scores: np.ndarray) -> dict:
-    G_v = len(fi.v_order)
+def unit_scores(fi: FastIndex, row_scores: np.ndarray) -> dict:
+    """Per-unit collapsed scores + truth ids, for both levels. Used by ranking
+    AND by the margin objective (which needs scores, not just ranks)."""
     if fi.selected:
-        v_score = row_scores[fi.v_rep]
+        v = row_scores[fi.v_rep]
     else:
-        v_score = _seg_max(row_scores, fi.v_codes, G_v)
-    g_score = _seg_max(v_score, fi.vg_gene, len(fi.g_order))
-    return {
-        "variant": _rank_from(v_score, fi.v_order, fi.v_truth),
-        "gene": _rank_from(g_score, fi.g_order, fi.g_truth),
-    }
+        v = _seg_max(row_scores, fi.v_codes, len(fi.v_order))
+    g = _seg_max(v, fi.vg_gene, len(fi.g_order))
+    return {"variant": (v, fi.v_truth), "gene": (g, fi.g_truth)}
+
+
+def fast_ranks(fi: FastIndex, row_scores: np.ndarray) -> dict:
+    us = unit_scores(fi, row_scores)
+    return {"variant": _rank_from(us["variant"][0], fi.v_order, us["variant"][1]),
+            "gene": _rank_from(us["gene"][0], fi.g_order, us["gene"][1])}

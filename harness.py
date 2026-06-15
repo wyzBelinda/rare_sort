@@ -166,6 +166,13 @@ def _contribs(bundle: FeatureBundle, row_idx: int, theta: dict,
     return out
 
 
+def _subscores(bundle: FeatureBundle, row_idx: int) -> dict:
+    """Raw (theta-independent) calibrated sub-scores -- lets a proposer see where
+    the causal variant is latently strong even if the current theta caps it."""
+    return {key: round(float(bundle.F[row_idx, j]), 3)
+            for j, key in enumerate(bundle.keys)}
+
+
 def explain_failures(items, theta, registry=None, k: int = 10,
                      level: str = "variant", masked_groups: frozenset = frozenset(),
                      collapse: str = "auto", max_blockers: int = 5) -> list[dict]:
@@ -187,16 +194,19 @@ def explain_failures(items, theta, registry=None, k: int = 10,
             continue
         crow = int(hit.sort_values("rank").iloc[0]["_rep_row"])
         blockers = ranked[ranked["rank"] < crank].head(max_blockers)
+        blk = blockers[["_unit", "score", "_rep_row"]].to_dict("records")
         failures.append({
             "case_id": p.case_id,
             "causal_rank": crank,
             "causal_unit": str(hit.sort_values("rank").iloc[0]["_unit"]),
             "causal_score": round(float(hit["score"].max()), 3),
             "causal_contributions": _contribs(p.bundle, crow, theta, masked_groups),
+            "causal_subscores": _subscores(p.bundle, crow),
             "blockers": [
-                {"unit": str(b._unit), "score": round(float(b.score), 3),
-                 "contributions": _contribs(p.bundle, int(b._rep_row), theta, masked_groups)}
-                for b in blockers.itertuples(index=False)
+                {"unit": str(b["_unit"]), "score": round(float(b["score"]), 3),
+                 "contributions": _contribs(p.bundle, int(b["_rep_row"]), theta, masked_groups),
+                 "subscores": _subscores(p.bundle, int(b["_rep_row"]))}
+                for b in blk
             ],
         })
     return failures
