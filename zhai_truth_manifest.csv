@@ -1,6 +1,6 @@
 case_id,csv_file,chrom,pos,ref,alt,gene,hgvsc,hgvsp,consequence,clinvar,report_level,pathogenicity
 POS_5,26D01487024_580d86.vep.csv,chr3,184353277,TAGGGG,T,CLCN2,c.1997_2001del,p.Pro666HisfsTer3,frameshift_variant,-,次要,疑似致病
-POS_5,26D01487024_580d86.vep.csv,chr5,161848826,T,TA,GABRA1,c.-16+403_-16+404insA,-,intron_variant,-,次要,意义未知
+POS_5,26D01487024_580d86.vep.csv,chr5,161847416,C,T,GABRA1,c.-248+5C>T,-,splice_donor_5th_base_variant,Uncertain_significance,次要,意义未知
 POS_5,26D01487024_580d86.vep.csv,chr17,31249087,C,T,NF1,c.4078C>T,p.Gln1360Ter,stop_gained,Pathogenic,主要,致病
 POS_5,26D01487024_580d86.vep.csv,chr5,67164569,G,T,MAST4,c.5390G>T,p.Cys1797Phe,missense_variant,-,次要,意义不明
 POS_6,25B06715455_89a308.resumed.vep.csv,chr19,15187126,G,A,NOTCH3,c.1819C>T,p.Arg607Cys,missense_variant,Pathogenic/Likely pathogenic,主要,致病
