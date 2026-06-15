@@ -1,0 +1,8 @@
+case_id,csv_file,chrom,pos,ref,alt,gene,consequence,clinvar,xlsx_pathogenicity
+POS_5,26D01487024_580d86.vep.csv,chr17,31249087,C,T,NF1,stop_gained,Pathogenic,致病
+POS_5,26D01487024_580d86.vep.csv,chr3,184353277,TAGGGG,T,CLCN2,frameshift_variant,-,疑似致病
+POS_5,26D01487024_580d86.vep.csv,chr16,58522238,CAAAAAAAAAAAA,C/CAAAA,CNOT1,intron_variant,-,意义未明
+POS_5,26D01487024_580d86.vep.csv,chr12,106494119,A,G,POLR3B,intron_variant,-,意义未明
+POS_6,25B06715455_89a308.resumed.vep.csv,chr19,15187126,G,A,NOTCH3,missense_variant,Pathogenic/Likely pathogenic,致病
+POS_6,25B06715455_89a308.resumed.vep.csv,chr6,129401341,G,A,LAMA2,splice_donor_variant,Conflicting classifications of pathogenicity,致病
+POS_6,25B06715455_89a308.resumed.vep.csv,chrX,154348991,C,A,FLNA,missense_variant,-,意义未明
