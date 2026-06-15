@@ -249,6 +249,10 @@ def _frequency(row: dict) -> float:
             s += -8
         elif nhomalt > 20:
             s += -15
+
+    # absent from gnomAD (both EAS and popmax missing) = extremely rare = +signal
+    if eas is None and popmax is None:
+        s += 5
     return s
 
 
