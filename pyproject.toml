@@ -1,0 +1,24 @@
+[project]
+name = "rare_sort"
+version = "0.2.0"
+description = "Rare disease variant prioritization — Layer 0 scoring + Layer 1 harness + Layer 3 optimizer + Layer 4 agent"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "optuna>=4.0",
+    "cmaes>=0.10",
+    "openai>=1.0",
+    "python-dotenv>=1.0",
+]
+
+[tool.setuptools.package-dir]
+"rare_sort" = "."
+"ranker" = "."
+
+[tool.setuptools]
+packages = ["rare_sort", "ranker"]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"

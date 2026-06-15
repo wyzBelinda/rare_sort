@@ -24,6 +24,7 @@ from .agent import (
     Proposal, AgentState, Proposer, HeuristicProposer, run_agent_loop,
     apply_proposal, llm_proposer_payload,
 )
+from .llm_proposer import LLMProposer, create_llm_proposer
 
 __all__ = [
     "Contributor", "default_registry", "ADDITIVE", "GATE", "GENE_PRIOR",
@@ -37,4 +38,5 @@ __all__ = [
     "optimize_theta", "cv_optimize", "fit_and_freeze", "metric_getter", "make_margin_objective",
     "Proposal", "AgentState", "Proposer", "HeuristicProposer", "run_agent_loop",
     "apply_proposal", "llm_proposer_payload",
+    "LLMProposer", "create_llm_proposer",
 ]
