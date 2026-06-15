@@ -16,7 +16,7 @@ Env vars (all required):
 
 Optional:
   RARE_SORT_TEMPERATURE        LLM temperature (default 0.2)
-  RARE_SORT_MAX_OUTPUT_TOKENS  Max tokens in response (default 1024)
+  RARE_SORT_MAX_OUTPUT_TOKENS  Max tokens in response (default 4096)
 """
 
 from __future__ import annotations
@@ -109,6 +109,10 @@ Rules for each kind:
 4. Prefer ONE targeted change per round. The agent loop gates every proposal
    with a held-out CV check; small steps are safer than big leaps.
 5. If there are no failures (n_failures=0), always reply "stop".
+
+## Output format
+Reply with ONLY a single valid JSON object. No markdown fences, no surrounding
+text, no thinking aloud. The response must start with "{" and end with "}".
 """
 
 # ── Parsing ────────────────────────────────────────────────────────────────
@@ -176,7 +180,7 @@ class LLMProposer:
         self.max_tokens = (
             max_tokens
             if max_tokens is not None
-            else int(os.environ.get("RARE_SORT_MAX_OUTPUT_TOKENS", "1024"))
+            else int(os.environ.get("RARE_SORT_MAX_OUTPUT_TOKENS", "4096"))
         )
         self.fallback = fallback
         self._heuristic = HeuristicProposer() if fallback else None
@@ -203,7 +207,6 @@ class LLMProposer:
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
-                response_format={"type": "json_object"},
             )
             raw = response.choices[0].message.content
             proposal = _parse_proposal(raw)
